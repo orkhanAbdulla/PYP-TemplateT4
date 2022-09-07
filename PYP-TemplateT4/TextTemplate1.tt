@@ -1,0 +1,80 @@
+﻿<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ assembly name="System.Data" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="System.Data.SqlClient" #>
+<#@ import namespace="System.IO" #>
+<#@ output extension=".cs" #>
+
+<#  
+string dir = @"C:\Users\hp\Desktop\PYP\PYP-TemplateT4\PYP-TemplateT4\Models\";
+if (!Directory.Exists(dir))
+{
+    Directory.CreateDirectory(dir);
+}
+const string connection = "server=DESKTOP-8J9LQBU;database=NORTHWND;Trusted_Connection=True;";
+SqlConnection con = new SqlConnection(connection);
+SqlCommand cmd = new SqlCommand("SELECT [Name] FROM sys.TABLES;", con);
+if (con.State==ConnectionState.Closed)
+{
+    con.Open();
+}
+SqlDataReader dr = cmd.ExecuteReader();
+List<string> tablesName = new();
+while (dr.Read())
+{
+    tablesName.Add(dr["Name"].ToString());
+}
+dr.Close();
+
+
+foreach (var item in tablesName)
+{
+    string fileRoot = Path.Combine(dir, item+".cs");
+    using (FileStream fs1 = new(fileRoot, FileMode.OpenOrCreate))
+    {
+        if (!File.Exists(fileRoot))
+            File.Create(fileRoot);
+    }
+    
+
+    SqlCommand cmdProperty = new SqlCommand($"SELECT column_name,data_type FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = '{item}'  ", con);
+    SqlDataReader dbProperty = cmdProperty.ExecuteReader();
+
+    using StreamWriter sw = new(fileRoot, true);
+    sw.WriteLine("namespace PYP_TemplateT4.Models;");
+    sw.WriteLine($"public class {item}");
+
+    sw.WriteLine("{");
+    while (dbProperty.Read())
+    {
+        string Dbtype = dbProperty["data_type"].ToString();
+        string type = "";
+        switch (Dbtype)
+        {
+            case "nvarchar":
+                type = "string";
+                break;
+            case "DateTime":
+                type = "DateTime";
+                break;
+            case "money":
+                type = "decimal";
+                break;
+            default:
+                type = "int";
+                break;
+        }
+        sw.WriteLine($"public {type} {dbProperty["column_name"].ToString()} {{get;set;}}");
+    }
+    sw.WriteLine("}");
+    dbProperty.Close();
+
+}
+con.Close();
+#>
+
+
